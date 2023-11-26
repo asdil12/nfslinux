@@ -2,11 +2,25 @@
 
 nfsroot=/srv/nfslinux
 NSPAWN_CALL="systemd-nspawn --resolv-conf=bind-host -D $nfsroot"
+dvd_iso=openSUSE-Tumbleweed-DVD-x86_64-Current.iso
 
-#zypper -n --root "$nfsroot" ar -c http://www.ftp.fau.de/opensuse/tumbleweed/repo/oss/ oss
-zypper -n --root "$nfsroot" ar -c iso:/?iso=openSUSE-Tumbleweed-DVD-x86_64-Current.iso dvd
-zypper -n --root "$nfsroot" --gpg-auto-import-keys ref
+if [ -e "$dvd_iso" ] ; then
+	zypper -n --root "$nfsroot" ar -c "iso:/?iso=$dvd_iso" dvd
+	zypper -n --root "$nfsroot" --gpg-auto-import-keys ref
+else
+	zypper -n --root "$nfsroot" ar -c http://www.ftp.fau.de/opensuse/tumbleweed/repo/oss/ oss
+fi
 zypper -n --root "$nfsroot" in --no-recommends systemd shadow zypper openSUSE-release vim glibc-locale ca-certificates kernel-default grub2 nfs-client wicked iproute2 timezone less
+if [ -e "$dvd_iso" ] ; then
+	zypper -n --root "$nfsroot" mr -d dvd
+	zypper -n --root "$nfsroot" ar -c http://www.ftp.fau.de/opensuse/tumbleweed/repo/oss/ oss
+	zypper -n --root "$nfsroot" --gpg-auto-import-keys ref
+fi
+zypper -n --root "$nfsroot" in sway dmenu alacritty bat pipewire
+
+zypper -n --root "$nfsroot" ar obs://games games
+zypper -n --root "$nfsroot" --gpg-auto-import-keys ref
+zypper -n --root "$nfsroot" install --no-recommends emptyepsilon
 
 echo -e "linux\nlinux" | $NSPAWN_CALL -P passwd root
 
@@ -40,9 +54,10 @@ HandleLidSwitchExternalPower=ignore
 HandleLidSwitchDocked=ignore
 EOF
 
-tee "$nfsroot/etc/profile.d/shutdown.sh" <<EOF
+tee "$nfsroot/etc/profile.d/nfslinux.sh" <<EOF
 alias reboot="reboot -f"
 alias poweroff="poweroff -f"
+alias dropcaches="echo 3 > /proc/sys/vm/drop_caches"
 EOF
 
 # set timezone and enable NTP client
@@ -56,6 +71,15 @@ XKBMODEL=microsoftpro
 XKBVARIANT=nodeadkeys
 XKBOPTIONS=terminate:ctrl_alt_bksp
 EOF
+
+mkdir -p  "$nfsroot/etc/sway/config.d/"
+tee "$nfsroot/etc/sway/config.d/nfslinux" <<EOF
+input * {
+	xkb_layout "de"
+	xkb_variant "nodeadkeys"
+}
+EOF
+ln -sf /usr/bin/alacritty "$nfsroot/usr/local/bin/foot"
 
 # disable hostonly mode so that the initrd will work everywhere
 echo "hostonly=no" | tee "$nfsroot/etc/dracut.conf.d/99-nfsoverlay.conf"
