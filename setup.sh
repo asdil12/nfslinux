@@ -10,19 +10,54 @@ if [ -e "$dvd_iso" ] ; then
 else
 	zypper -n --root "$nfsroot" ar -c http://www.ftp.fau.de/opensuse/tumbleweed/repo/oss/ oss
 fi
-zypper -n --root "$nfsroot" in --no-recommends systemd shadow zypper openSUSE-release vim glibc-locale ca-certificates kernel-default grub2 nfs-client wicked iproute2 timezone less
+zypper -n --root "$nfsroot" in --no-recommends systemd shadow zypper openSUSE-release vim glibc-locale ca-certificates kernel-default grub2 nfs-client wicked iproute2 timezone less vim-data sudo psmisc
 if [ -e "$dvd_iso" ] ; then
 	zypper -n --root "$nfsroot" mr -d dvd
 	zypper -n --root "$nfsroot" ar -c http://www.ftp.fau.de/opensuse/tumbleweed/repo/oss/ oss
 	zypper -n --root "$nfsroot" --gpg-auto-import-keys ref
 fi
-zypper -n --root "$nfsroot" in sway dmenu alacritty bat pipewire
+zypper -n --root "$nfsroot" in sway dmenu alacritty bat pipewire pipewire-alsa pipewire-pulseaudio gstreamer-plugin-pipewire pavucontrol brightnessctl
+#zypper -n --root "$nfsroot" in --no-recommends pulseaudio-utils pavucontrol brightnessctl
 
 zypper -n --root "$nfsroot" ar obs://games games
 zypper -n --root "$nfsroot" --gpg-auto-import-keys ref
 zypper -n --root "$nfsroot" install --no-recommends emptyepsilon
 
 echo -e "linux\nlinux" | $NSPAWN_CALL -P passwd root
+
+# add user tux with audio support
+$NSPAWN_CALL useradd -m -N tux
+echo -e "linux\nlinux" | $NSPAWN_CALL -P passwd tux
+$NSPAWN_CALL -u tux systemctl --user enable pipewire{,-pulse}.socket
+
+# allow login without password
+rm -f "$nfsroot/etc/pam.d/common-auth"
+echo "auth    sufficient      pam_localuser.so" | tee "$nfsroot/etc/pam.d/common-auth"
+grep -v "^#" /etc/pam.d/common-auth-pc | tee -a "$nfsroot/etc/pam.d/common-auth"
+
+# autologin tux on tty1
+mkdir -p "$nfsroot/etc/systemd/system/getty@tty1.service.d"
+tee "$nfsroot/etc/systemd/system/getty@tty1.service.d/autologin.conf" <<EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty -o '-p -- \\\\u' --noclear --autologin tux --skip-login - \$TERM
+EOF
+
+# autostart sway for tux
+echo '[ "$(tty)" = "/dev/tty1" ] && exec sway' | $NSPAWN_CALL -P -u tux tee -a "/home/tux/.bash_profile"
+
+tee "$nfsroot/etc/issue" <<EOF
+
+███╗   ██╗███████╗███████╗██╗     ██╗███╗   ██╗██╗   ██╗██╗  ██╗
+████╗  ██║██╔════╝██╔════╝██║     ██║████╗  ██║██║   ██║╚██╗██╔╝
+██╔██╗ ██║█████╗  ███████╗██║     ██║██╔██╗ ██║██║   ██║ ╚███╔╝
+██║╚██╗██║██╔══╝  ╚════██║██║     ██║██║╚██╗██║██║   ██║ ██╔██╗
+██║ ╚████║██║     ███████║███████╗██║██║ ╚████║╚██████╔╝██╔╝ ██╗
+╚═╝  ╚═══╝╚═╝     ╚══════╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝
+
+Login with root/linux or tux/linux
+
+EOF
 
 tee "$nfsroot/etc/sysconfig/network/ifcfg-eth0" <<EOF
 BOOTPROTO='dhcp'
@@ -78,8 +113,25 @@ input * {
 	xkb_layout "de"
 	xkb_variant "nodeadkeys"
 }
+bindsym XF86AudioRaiseVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+
+bindsym XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+bindsym XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+bindsym XF86MonBrightnessDown exec brightnessctl set 5%-
+bindsym XF86MonBrightnessUp exec brightnessctl set 5%+
+exec autostart
 EOF
 ln -sf /usr/bin/alacritty "$nfsroot/usr/local/bin/foot"
+
+tee "$nfsroot/usr/local/bin/autostart" <<EOF
+#!/usr/bin/python3
+
+import os
+for p in open('/proc/cmdline').read().strip().split(' '):
+	if p.startswith('autostart='):
+		e = p.split('=')[1]
+		os.execvp(e, [e])
+EOF
+chmod +x "$nfsroot/usr/local/bin/autostart"
 
 # disable hostonly mode so that the initrd will work everywhere
 echo "hostonly=no" | tee "$nfsroot/etc/dracut.conf.d/99-nfsoverlay.conf"
