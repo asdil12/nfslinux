@@ -1,0 +1,17 @@
+#!ipxe
+
+# This script is supposed to be embedded into the ipxe.pxe and ipxe.efi bootloader images like this:
+# git clone https://github.com/ipxe/ipxe.git
+# cd ipxe/src
+# make EMBED=boot.ipxe bin/ipxe.pxe bin-x86_64-efi/ipxe.efi
+# cp bin/ipxe.pxe bin-x86_64-efi/ipxe.efi /srv/tftpboot/
+# zypper -n in cross-aarch64-gcc13
+# make EMBED=/srv/tftpboot/boot.ipxe CROSS=aarch64-suse-linux- bin-arm64-efi/ipxe.efi
+# cp bin-arm64-efi/ipxe.efi /srv/tftpboot/ipxe-arm64.efi
+
+echo Welcome to NFSLinux iPXE
+
+dhcp
+
+chain --replace --autofree http://${next-server}/tftpboot/menu.ipxe ||
+chain --replace --autofree tftp://${next-server}/menu.ipxe ||
