@@ -28,7 +28,7 @@ zypper -n --root "$nfsroot" --gpg-auto-import-keys ref
 zypper -n --root "$nfsroot" in --no-recommends \
     systemd shadow zypper openSUSE-release vim glibc-locale ca-certificates kernel-default grub2 \
     nfs-client wicked iproute2 iputils timezone less vim-data sudo psmisc curl wget openssh \
-    aaa_base-extras python3 kernel-firmware-all
+    aaa_base-extras python3 kernel-firmware-all sof-firmware ucode-intel ucode-amd usbutils biosdevname alsa-utils
 if [ -e "$dvd_iso" ] ; then
 	zypper -n --root "$nfsroot" mr -d dvd
 fi
