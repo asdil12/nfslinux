@@ -138,6 +138,9 @@ input * {
 	xkb_layout "de"
 	xkb_variant "nodeadkeys"
 }
+input type:touchpad {
+	tap enabled
+}
 bindsym XF86AudioRaiseVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+
 bindsym XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
 bindsym XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
