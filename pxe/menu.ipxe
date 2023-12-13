@@ -1,0 +1,116 @@
+#!ipxe
+
+# dhcp should be already done by boot script
+#dhcp
+
+#set variables
+set menu-timeout 8000
+set httpserver http://${next-server}
+set nfsserver ${next-server}
+set nfslinuxcmdln ip=dhcp net.ifnames=0 root=${nfsserver}:/srv/nfslinux rd.shell rd.overlayfsify=1 rd.keepwickeddhcp=1 rd.hostappendmac=1
+
+set edit-cmdline 0
+
+:start
+menu NFSLinux iPXE menu from ${next-server}
+
+item --gap --             ---------------------------- Boot Options --------------------------------
+item --key e nfslinux_ee  (e) Default nfslinux with autostart EmptyEpsilon
+item --key s nfslinux_sn  (s) Default nfslinux with autostart SpaceNerdsInSpace
+item --key t nfslinux_tty (t) Default nfslinux with autostart terminal
+item --gap --             ---------------------------- Settings -----------------------------------
+iseq ${edit-cmdline} 0 && item --key k toggleedit (k) Edit cmdline after selectig boot menu entry [DISABLED] ||
+iseq ${edit-cmdline} 1 && item --key k toggleedit (k) Edit cmdline after selectig boot menu entry [ENABLED] ||
+item --gap --             ------------------------- Advanced options -------------------------------
+item --key d nfslinux_rd  (d) Boot nfslinux into initrd debug shell
+item --key x nbxyz        (x) Chainload Netboot.xyz (x86_64 / aarch64)
+item --key c config       (c) Configure iPXE settings
+item --key i shell        (i) Drop to iPXE shell
+item --key r reboot       (r) Reboot computer
+item
+item --key x exit         (x) Exit iPXE and continue BIOS boot 
+
+choose --timeout ${menu-timeout} --default nfslinux_ee selected || goto cancel
+set menu-timeout 0
+goto ${selected}
+
+:toggleedit
+iseq ${edit-cmdline} 0 && set edit-cmdline 1 && goto start ||
+iseq ${edit-cmdline} 1 && set edit-cmdline 0 && goto start ||
+
+:nfslinux_ee
+set extracmdln autostart=EmptyEpsilon
+goto nfslinux
+
+:nfslinux_sn
+#set extracmdln autostart=TODO
+goto nfslinux
+
+:nfslinux_tty
+set extracmdln autostart=alacritty
+goto nfslinux
+
+:nfslinux_rd
+set extracmdln rd.break_comment=pre-pivot
+goto nfslinux
+
+:nfslinux
+set kernel ${httpserver}/nfslinux/boot/vmlinuz
+set cmdline ${nfslinuxcmdln} ${extracmdln}
+set initrd ${httpserver}/nfslinux/boot/initrd
+goto editandboot
+
+:nbxyz
+iseq ${platform} pcbios && chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.lkrn ||
+iseq ${buildarch} arm64 && chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz-arm64.efi ||
+chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.efi
+
+:editandboot
+iseq ${edit-cmdline} 0 && goto bootnow ||
+echo Selected settings:
+echo kernel: ${kernel}
+echo cmdline: ${cmdline}
+echo initrd: ${initrd}
+echo
+echo You can modify kernel, cmdline and initrd before boot
+echo -n Kernel: ${}
+read kernel
+echo -n Kernel cmdline: ${}
+read cmdline
+echo -n Initrd: ${}
+read initrd
+
+# clear the screen to prevent lost chars
+set esc:hex 1b            # ANSI escape character - "^["
+set cls ${esc:string}[2J  # ANSI clear screen sequence - "^[[2J"
+echo ${cls}
+sleep 1 # clearing the screen may take a second
+
+:bootnow
+kernel ${kernel} ${cmdline}
+initrd ${initrd}
+boot
+
+:cancel
+echo You cancelled the menu, dropping you to a shell
+
+:shell
+echo Type 'exit' to get the back to the menu
+shell
+set menu-timeout 0
+set submenu-timeout 0
+goto start
+
+:failed
+echo Booting failed, dropping to shell
+goto shell
+
+:reboot
+reboot
+
+:exit
+exit
+
+:config
+config
+goto start
