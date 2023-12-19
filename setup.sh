@@ -8,6 +8,23 @@ distro="openSUSE_Tumbleweed"
 dvd_iso=openSUSE-Tumbleweed-DVD-x86_64-Current.iso
 #dvd_iso=no
 
+if ! which systemd-nspawn ; then
+	echo "This script needs systemd-nspawn to be installed"
+	exit 1
+fi
+
+# allow bootstrapping the nfsroot on non-suse systems
+if ! which zypper ; then
+	zypper() {
+		local ret=0
+		podman run -it --rm -v /srv/:/srv/ opensuse/tumbleweed zypper $@ || ret=$?
+		[[ "$ret" == "107" ]] && ret=0
+		return $ret
+	}
+	# zypper can't mount an iso whithin a container
+	dvd_iso=
+fi
+
 if [ -e "$dvd_iso" ] ; then
 	zypper -n --root "$nfsroot" ar -c -p 80 "iso:/?iso=$dvd_iso" dvd
 fi
@@ -51,7 +68,7 @@ $NSPAWN_CALL -u tux systemctl --user enable pipewire{,-pulse}.socket
 # allow login without password
 rm -f "$nfsroot/etc/pam.d/common-auth"
 echo "auth    sufficient      pam_localuser.so" | tee "$nfsroot/etc/pam.d/common-auth"
-grep -v "^#" /etc/pam.d/common-auth-pc | tee -a "$nfsroot/etc/pam.d/common-auth"
+grep -v "^#" "$nfsroot/etc/pam.d/common-auth-pc" | tee -a "$nfsroot/etc/pam.d/common-auth"
 
 # autologin tux on tty1
 mkdir -p "$nfsroot/etc/systemd/system/getty@tty1.service.d"
@@ -73,6 +90,7 @@ fi
 EOF
 
 source "$nfsroot/etc/os-release"
+# ANSI Sharow (also nice looking: DOS Rebel)
 tee "$nfsroot/etc/issue" <<EOF
 
 ███╗   ██╗███████╗███████╗██╗     ██╗███╗   ██╗██╗   ██╗██╗  ██╗
@@ -174,6 +192,8 @@ EOF
 cp -rv dracut_modules/* "$nfsroot/usr/lib/dracut/modules.d/"
 $NSPAWN_CALL dracut -f --regenerate-all
 $NSPAWN_CALL sh -c 'chmod a+r /boot/initrd-*'
+
+echo "DONE! - Your nfslinux chroot was created at $nfsroot"
 
 
 # export fs from host
