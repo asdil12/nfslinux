@@ -15,6 +15,8 @@ fi
 
 # allow bootstrapping the nfsroot on non-suse systems
 if ! which zypper ; then
+	echo "Running on a non-suse system!"
+	echo "Will use docker (actually podman) to bootstrap the chroot."
 	zypper() {
 		local ret=0
 		podman run -it --rm -v /srv/:/srv/ opensuse/tumbleweed zypper $@ || ret=$?
@@ -37,7 +39,7 @@ if [ -n "$leap" ] ; then
 	zypper -n -R "$nfsroot" ar http://download.opensuse.org/update/leap/$distro/oss/ repo-update
 	zypper -n -R "$nfsroot" ar http://download.opensuse.org/update/leap/$distro/non-oss/ repo-update-non-oss
 else
-	zypper -n --root "$nfsroot" ar http://www.ftp.fau.de/opensuse/tumbleweed/repo/oss/ oss
+	zypper -n --root "$nfsroot" ar http://ftp.fau.de/opensuse/tumbleweed/repo/oss/ oss
 fi
 zypper -n --root "$nfsroot" ar -p 150 http://download.opensuse.org/repositories/games/${distro}/ games
 
