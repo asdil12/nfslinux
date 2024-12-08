@@ -3,7 +3,7 @@
 nfsroot=/srv/nfslinux
 NSPAWN_CALL="systemd-nspawn --resolv-conf=bind-host -D $nfsroot"
 distro="openSUSE_Tumbleweed"
-#distro="15.5"
+#distro="15.6"
 [ "$distro" != "openSUSE_Tumbleweed" ] && leap=1
 dvd_iso=openSUSE-Tumbleweed-DVD-x86_64-Current.iso
 #dvd_iso=no
@@ -47,7 +47,7 @@ zypper -n --root "$nfsroot" --gpg-auto-import-keys ref
 zypper -n --root "$nfsroot" in --no-recommends \
     systemd shadow zypper openSUSE-release vim glibc-locale ca-certificates kernel-default grub2 \
     nfs-client wicked iproute2 iputils timezone less vim-data sudo psmisc curl wget openssh \
-    aaa_base-extras python3 kernel-firmware-all sof-firmware ucode-intel ucode-amd usbutils biosdevname alsa-utils
+    aaa_base-extras python3 kernel-firmware-all sof-firmware ucode-intel ucode-amd usbutils biosdevname alsa-utils procps
 if [ -e "$dvd_iso" ] ; then
 	zypper -n --root "$nfsroot" mr -d dvd
 fi
